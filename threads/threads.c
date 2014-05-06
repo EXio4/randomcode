@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "threads.h"
 
-void *thread_internal(void* param) {
+void *thread_internal(void *param) {
     thread* self = (thread*)param;
 
     self->running = 1;
@@ -26,7 +26,7 @@ thread* thread_new(void *(*func)(void*), void* param) {
 
     return self;
 }
-int thread_start(thread* self) {
+int thread_start(thread *self) {
     int rc = -1;
 
     struct timespec req, rem;
@@ -46,7 +46,7 @@ int thread_start(thread* self) {
     return rc;
 }
 
-int thread_stop(thread* self) {
+int thread_stop(thread *self) {
     if (!self) return -1;
 
     self->stop = 1;
@@ -61,12 +61,17 @@ void thread_wait(thread *self) {
         pthread_join(self->threadid, &status);
     }
 }
+
+int thread_running(thread *self) {
+    if (!self) return -1;
+    return self->running;
+}
+
 void *thread_ret(thread *self) {
     if (!self || self->running)
         return NULL;
     else
         return self->ret;
-
 }
 
 #ifdef TESTS
@@ -74,7 +79,7 @@ void *thread_ret(thread *self) {
 #include <stdio.h>
 #include <string.h>
 
-void* test(void* param) {
+void* test(void *param) {
     thread* self = (thread*)param;
 
     struct timespec req, rem;
@@ -88,7 +93,7 @@ void* test(void* param) {
     self->data=NULL;
 
     while(!self->stop) {
-        (*i)++;
+        //
         nanosleep(&req,&rem);
     }
 
@@ -97,8 +102,8 @@ void* test(void* param) {
     return (void*)i;
 }
 
-int main(int argc, char** argv) {
-    thread* my = thread_new(&test, strdup("hi"));
+int main(int argc, char **argv) {
+    thread *my = thread_new(&test, strdup("hi"));
 
     thread_start(my);
 
@@ -109,7 +114,7 @@ int main(int argc, char** argv) {
     int x = *((int*)thread_ret(my));
 
     printf("Test ");
-    if (x > 0 && my->data == NULL) {
+    if (x == 1 && my->data == NULL) {
         printf("passed\n");
     } else {
         printf("failed\n");
