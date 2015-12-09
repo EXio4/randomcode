@@ -9,11 +9,18 @@ import System.Console.Readline
 data Command = Play !String
              | RepeatPrevious
              | SetPrompt !String
+             | SetLang   !String
              | DoNothing
              | Quit
 
 data Err = InvalidCommand
          | NoPreviousPlay
+
+data Config = Config {
+                lang     :: String      ,
+                previous :: Maybe String,
+                prompt   :: String
+            }
 
 showErr :: Err -> String
 showErr InvalidCommand = "Invalid command, try again."
@@ -30,7 +37,9 @@ parseC = p
                         | x `elem` ["quit"  , "q"]
                         = Just Quit
          cmd_parses (x:y:xs) | x == "set" , y == "prompt" = Just (SetPrompt (unwords xs))
+                             | x == "set" , y == "lang"   = Just (SetLang   (unwords xs))
          cmd_parses (x:xs)   | x == "setp"                = Just (SetPrompt (unwords xs))
+                             | x == "setl"                = Just (SetLang   (unwords xs))
          cmd_parses [] = Just RepeatPrevious
          cmd_parses _ = Nothing
 
@@ -42,24 +51,25 @@ play lang xs = do
     return ()
 
 
-loop :: String -> String -> Maybe String -> IO ()
-loop prompt lang previous = do
-     str <- readline (prompt ++ " ")
+loop :: Config -> IO ()
+loop cfg = do
+     str <- readline (prompt cfg ++ " ")
      maybe (return ()) addHistory str
      case (maybe (Right Quit) id . fmap parseC) str  of
         Left err  -> rec err
         Right cmd -> case cmd of
                Quit -> return ()
-               SetPrompt prompt -> loop prompt lang previous
-               RepeatPrevious -> case previous of
+               SetPrompt prompt' -> loop (cfg { prompt = prompt' })
+               SetLang   lang'   -> loop (cfg { lang   = lang'   })
+               RepeatPrevious -> case previous cfg of
                                       Nothing -> rec NoPreviousPlay
-                                      Just p  -> play lang p >> loop prompt lang previous
-               Play p -> play lang p >> loop prompt lang (Just p) 
-               DoNothing -> loop prompt lang previous
+                                      Just p  -> play (lang cfg) p >> loop cfg
+               Play p -> play (lang cfg) p >> loop (cfg { previous = Just p })
+               DoNothing -> loop cfg 
   where rec :: Err -> IO ()
-        rec err = putStrLn (showErr err) >> loop prompt lang previous 
+        rec err = putStrLn (showErr err) >> loop cfg
  
      
 
 
-main = loop "en>" "en-US" Nothing
+main = loop $ Config { prompt = "en>", lang = "en-US", previous = Nothing }
