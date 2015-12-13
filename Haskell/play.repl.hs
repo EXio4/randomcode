@@ -6,6 +6,7 @@ import System.Process
 import Data.Maybe
 import Data.Char
 import Data.List
+import Data.List.Utils
 import Control.Applicative
 import Control.Monad
 import System.Console.Readline
@@ -94,10 +95,12 @@ play lang xs = do
     callProcess "aplay"     ["/tmp/tts.wav"]
     return ()
 
+prmpt :: Config -> String
+prmpt (Config{prompt=p, lang=l}) = replace "${lang}" (toSetting l) p
 
 loop :: Config -> IO ()
 loop cfg = do
-     str <- readline (prompt cfg ++ " ")
+     str <- readline (prmpt cfg ++ " ")
      maybe (return ()) addHistory str
      case (maybe (Right Quit) id . fmap parseC) str  of
         Left err  -> rec err
@@ -135,8 +138,6 @@ help cfg = mapM_ pstr
             pstr (L x) = putStrLn $ "\t" ++ foldr t "" x
             t xs w | length xs < 8 = xs ++ "\t\t" ++ w
                    | otherwise     = xs ++ "\t"   ++ w
- 
-     
 
 
-main = loop $ Config { prompt = "en>", lang = EnglishUS, previous = Nothing }
+main = loop $ Config { prompt = "${lang}>", lang = EnglishUS, previous = Nothing }
