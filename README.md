@@ -15,6 +15,7 @@ Random Code (or whatever you want to call this)
 ## Random things (Haskell/)
 
 * play.repl.hs - small REPL interface for pico2wave
+* tags - naive good-enough (for not a lot of data) tag manager
 
 ## Advent of code (advent/)
 
