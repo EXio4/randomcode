@@ -37,11 +37,11 @@ withDB cb = do
 
 addTag :: T.Text -> T.Text -> IO ()
 addTag file tag = withDB $ \db -> do
-          return (Just (M.insertWith S.union tag (S.singleton file) db))
+          return (Just (M.insertWith S.union tag (S.singleton (T.toLower file)) db))
 
 ls :: T.Text -> IO ()
 ls tag = withDB $ \db -> do
-          case M.lookup tag db of
+          case M.lookup (T.toLower tag) db of
               Nothing -> putStrLn "No files found (matching the tag)"
               Just s  -> F.forM_ s $ \w -> do
                         T.IO.putStrLn ("\t*\t" <> w)
