@@ -24,3 +24,5 @@
 
 # Haskell interface files
 *.hi
+
+Haskell/tags/build/*
