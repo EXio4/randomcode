@@ -76,12 +76,13 @@ instance NFData BNode where
 instance NFData WNode where
     rnf !_ = ()
 
-[air, water, dirt, grass, stone] =
+[air, water, dirt, grass, stone, sand] =
     map BNode [ "air"
               , "default:water_source"
               , "default:dirt"
               , "default:dirt_with_grass"
-              , "default:stone"]
+              , "default:stone"
+              , "default:sand"]
 
 data Dims = Dims {-# UNPACK #-} !Int {-# UNPACK #-} !Int {-# UNPACK #-} !Int
     deriving (Show,Eq,Ord)
@@ -285,10 +286,14 @@ toMap pVec hVec = force $ runST $ do
           go :: MV.STVector s (MV.STVector s Node) -> Int -> Int -> Word8 -> PixelRGB8 -> ST s ()
           go !vc  !x !y !height (PixelRGB8 r g b) = do
                 let nod | b >= 200 && g <= 150 && r <= 150  = water
+                        | g >  150 && b <= 150 && r >  150  = sand
                         | g >  150 && b <= 150 && r <= 150  = grass
                         | otherwise = stone
-                    ibrig = 1 + ceiling (fromIntegral height)
+                    ibrig = 1 + floor (fromIntegral height / 10)
                 writ vc (x,y) (Node nod ibrig)
+
+stPrint :: Show a => a -> ST s ()
+stPrint s = unsafeCoerce# (print s)
                 
 ct :: FilePath -> IO ()
 ct basePath = do
