@@ -1,9 +1,8 @@
-{-# LANGUAGE OverloadedStrings, ViewPatterns, BangPatterns, MagicHash #-}
-
+{-# LANGUAGE BangPatterns, ViewPatterns, MagicHash, OverloadedStrings #-}
 module Main (main) where
 
 import           Control.DeepSeq
-import           Control.Applicative ((<$>), (<*>))
+import           Control.Applicative ((<$>), (<*>), (*>), (<*))
 
 import           Codec.Picture.Types
 import           Codec.Picture
@@ -12,13 +11,15 @@ import           Data.Function
 import           Data.List
 import           Data.Word
 import           Data.Monoid
-import qualified Data.Foldable as F
+import qualified Data.Foldable    as F
+import qualified Data.Traversable as T
 import           Control.Monad
 import           Control.Monad.ST
 import           Data.STRef
 
-import           Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy  as BSL
+import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString       as BS
 import           Data.Binary.Put
 
 import           Data.Vector (Vector)
@@ -37,21 +38,13 @@ import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
 
-import qualified Data.Attoparsec.ByteString as AP
 
-import           GHC.Types
-import           GHC.Prim
 
-data Node = Node !BNode {-# UNPACK #-} !Int
-        deriving (Show,Eq)
-
-instance NFData Node where
-    rnf (Node{}) = ()
-
-data CityMap = CityMap {-# UNPACK #-} !(V.Vector (V.Vector Node))
-
-instance NFData CityMap where
-    rnf (CityMap v) = rnf v `seq` ()
+import           GenMap.Types
+import           GenMap.MutMapNode
+import           GenMap.Utils
+import           GenMap.ColorNodeMP
+import           GenMap.ImageProcess
 
 s :: Int -> Node
 s = Node stone
@@ -66,87 +59,6 @@ level = CityMap . V.fromList . map V.fromList $
       ]
 
 
-newtype BNode = BNode ByteString
-    deriving (Eq,Ord,Show)
-newtype WNode = WNode Word16
-    deriving (Eq,Ord,Show)
-
-instance NFData BNode where
-    rnf !_ = ()
-instance NFData WNode where
-    rnf !_ = ()
-
-[air, water, dirt, grass, stone, sand] =
-    map BNode [ "air"
-              , "default:water_source"
-              , "default:dirt"
-              , "default:dirt_with_grass"
-              , "default:stone"
-              , "default:sand"]
-
-data Dims = Dims {-# UNPACK #-} !Int {-# UNPACK #-} !Int {-# UNPACK #-} !Int
-    deriving (Show,Eq,Ord)
-
-{- (X,Y,Z) -> BNode -}
-data MapNode = MapNode {
-     nodeMaps :: ![ByteString]
-    ,dims     :: {-# UNPACK #-} !Dims
-    ,vec      :: {-# UNPACK #-} !(V.Vector (V.Vector (UV.Vector Word16)))
-} deriving (Show,Eq,Ord)
-
-data Mapping = Mapping {-# UNPACK #-} !Word16 !(Map BNode Word16)
-
-data MutMapNode s = MutMapNode {
-      mut_nodeMaps :: {-# UNPACK #-} !(STRef s Mapping)
-     ,mut_Vec      :: {-# UNPACK #-} !(MV.STVector s (MV.STVector s (MUV.STVector s Word16)))
-}
-
-frz :: MutMapNode s -> ST s MapNode
-frz (MutMapNode mps vecs) = do
-        Mapping _ m <- readSTRef mps
-        let m' = map (\(BNode x, _) -> x) . sortBy (compare `on` snd) . M.toList $ m
-        lv <- (V.mapM (V.mapM UV.unsafeFreeze) <=<
-                       V.mapM  V.unsafeFreeze  <=<
-                               V.unsafeFreeze      ) vecs
-        let map_node = MapNode m' (dims'vc lv) lv
-        map_node `deepseq` return map_node
-
-newMutMapNode :: Int -> Int -> Int -> ST s (MutMapNode s)
-newMutMapNode p_x p_y p_z = do
-    !v_z <- MV.new p_z
-    forMV v_z $ \ !i_z _ -> do
-                    !v_y <- MV.new (p_y+1)
-                    forMV v_y $ \ !_ _ -> do
-                        MUV.replicate p_x 0
-                    return v_y
-    mpng <- newSTRef (Mapping 1 (M.singleton (BNode "air") 0))
-    return (MutMapNode mpng v_z)
-
-writeNode' :: MutMapNode s -> Int -> Int -> Int -> Word16 -> ST s ()
-writeNode' (MutMapNode _ vec) x y z node_id = do
-                !i1 <- MV.unsafeRead vec z
-                !i2  <- MV.unsafeRead i1 y
-                MUV.unsafeWrite i2 x node_id    
-getNodeID :: MutMapNode s -> BNode -> ST s Word16
-getNodeID (MutMapNode mapsRef _) node = do
-                Mapping mx maps <- readSTRef mapsRef
-                case M.lookup node maps of
-                     Nothing -> let !mp = Mapping (mx+1) (M.insert node mx maps)
-                                in do writeSTRef mapsRef mp
-                                      return mx
-                     Just v -> return v
-
-writeNode :: MutMapNode s -> Int -> Int -> Int -> BNode -> ST s ()
-writeNode q x y z node = do
-                !node_id <- getNodeID q node
-                writeNode' q x y z node_id
-
-instance NFData MapNode where
-    rnf (MapNode x y z) = rnf x `seq` rnf z `seq` ()
-
-bmapM_ :: Monad m => (Word8 -> m a) -> ByteString -> m ()
-bmapM_ f = BSL.foldr (\x y -> f x >> y) (return ()) 
-
 i2w :: Int -> Word16
 i2w = fromIntegral
 w2i :: Word16 -> Int
@@ -160,25 +72,20 @@ forMV !v !f =
         !x <- f i e
         MV.write v i x
 
-dims'vc :: Vector (Vector (UV.Vector Word16)) -> Dims
-dims'vc im = Dims x y z
-    where x = UV.length . V.head . V.head $ im
-          y =  V.length . V.head          $ im
-          z =  V.length                   $ im
-
-putS :: [ByteString] -> Put
-putS xs = do
+-- why the fuck
+putLo :: Integral n => (xs -> n) -> ((Word8 -> Put) -> xs -> Put) -> [xs] -> Put
+putLo len rec xs = do
         putWord16be (i2w (length xs))
         F.forM_ xs $ \x -> do
-            putWord16be (fromIntegral (BSL.length x))
-            bmapM_ putWord8 x
+            putWord16be (fromIntegral (len x))
+            rec putWord8 x
 
-loop :: Monad m => Int -> Int -> (Int -> m a) -> m ()
-loop (I# start) (I# stop) = \fun ->
-        let go !x = case x ># stop of
-                        1# -> return ()
-                        _  -> let !al_i = I# x in fun al_i >> go (x +# 1#)
-        in go start
+putS :: [BS8.ByteString] -> Put
+putS = putLo BS8.length bmapL_
+putLS :: [BSL.ByteString] -> Put
+putLS = putLo BSL.length blmapL_
+
+
             
 for' :: Monad m => MapNode -> (Word16 -> m a) -> m ()
 for' im f = case dims im of
@@ -192,11 +99,11 @@ for' im f = case dims im of
 
 
 zlib :: Put -> Put
-zlib = bmapM_ putWord8 . ZL.compress . runPut
+zlib = blmapL_ putWord8 . ZL.compress . runPut
 
-mapNode :: MapNode -> ByteString
+mapNode :: MapNode -> BSL.ByteString
 mapNode (force -> !im) = runPut $ do
-                bmapM_ putWord8 "MTSM"
+                blmapL_ putWord8 "MTSM"
                 putWord16be 4
                 let (Dims x y z) = dims im
                 putWord16be (i2w x)
@@ -257,52 +164,14 @@ mt city@(CityMap !xs) = force $ runST $ do
 writeSch :: FilePath -> MapNode -> IO ()
 writeSch fp = BSL.writeFile fp . mapNode
 
-imageRGB8 (ImageRGB8 x) = Right x
-imageRGB8 _ = Left "Invalid format (Expected RGB8)"
-imageY8 (ImageY8 x) = Right x
-imageY8 _ = Left "Invalid format (Expected Y8)"
 
-loadPic :: (DynamicImage -> Either String (Image p)) -> FilePath -> IO (Image p)
-loadPic f p = do x <- fmap (>>= f) (readImage p)
-                 case x of
-                      Left err -> error err
-                      Right x  -> return x
-
-foldPic :: (Pixel p, Monad m) => (Int -> Int -> p -> m a) -> Image p -> m ()
-foldPic f im = pixelFold (\acc x y p-> f x y p >> acc) (return ()) im
-
-toMap :: Image PixelRGB8 -> Image Pixel8 -> CityMap
-toMap pVec hVec = force $ runST $ do
-            let (h,w) = (imageHeight pVec, imageWidth pVec)
-            !v <- MV.new h
-            F.forM_ [0..h-1] $ \i -> MV.write v i =<< MV.replicate w (Node air 0)
-            foldPic (\x y p -> go v x y (pixelAt hVec x y) p) pVec
-            CityMap <$> (V.mapM V.unsafeFreeze <=< V.unsafeFreeze) v
-    where writ :: MV.STVector s (MV.STVector s Node) -> (Int, Int) -> Node -> ST s ()
-          writ !outer (!x,!y) !n = do
-              inner <- MV.read outer x
-              MV.write inner y n
-             
-          go :: MV.STVector s (MV.STVector s Node) -> Int -> Int -> Word8 -> PixelRGB8 -> ST s ()
-          go !vc  !x !y !height (PixelRGB8 r g b) = do
-                let nod | b >= 200 && g <= 150 && r <= 150  = water
-                        | g >  150 && b <= 150 && r >  150  = sand
-                        | g >  150 && b <= 150 && r <= 150  = grass
-                        | otherwise = stone
-                    ibrig = 1 + floor (fromIntegral height / 10)
-                writ vc (x,y) (Node nod ibrig)
-
-stPrint :: Show a => a -> ST s ()
-stPrint s = unsafeCoerce# (print s)
-                
 ct :: FilePath -> IO ()
 ct basePath = do
-        !points <- loadPic imageRGB8 (basePath <> "_points.png")
-        !height <- loadPic imageY8   (basePath <> "_height.png")
-        let !m = mt (toMap points height)
+        !m <- loadCityMap (basePath <> "_points.png")  (basePath <> "_height.png")
+        !nodepic <- parseMP <$> BS8.readFile (basePath <> "_nodes.txt")
         force m `seq` putStrLn ""
-        writeSch "/home/exio4/.minetest/worlds/wow/schems/test_01.mts" m
+        writeSch "/home/exio4/.minetest/worlds/wow/schems/test_01.mts" (mt m)
 
-
+        
 main :: IO ()
 main = ct "gm"
