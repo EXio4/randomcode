@@ -140,7 +140,7 @@ update curr_machine_id = do
                             update xid
                     Combine input (Particle endType endNum) end_id -> do 
                         forM input $ \(_,i) -> update i
-                        is <- (snd . minimumBy (compare `on` snd)) <$> (forM input $ \(p,i) -> (i,) <$> affordFromC i p)
+                        is <- minimum <$> (forM input $ \(p,i) -> affordFromC i p)
                         if is <= 0
                         then return () -- we can't afford anything
                         else do
