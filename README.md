@@ -16,6 +16,7 @@ Random Code (or whatever you want to call this)
 
 * play.repl.hs - small REPL interface for pico2wave
 * tags - naive good-enough (for not a lot of data) tag manager
+* lazy-machines - proof-of-concept algorithm of a partially lazy evaluated graph for a game
 
 ## Advent of code (advent/)
 
