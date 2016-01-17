@@ -33,7 +33,7 @@ normalizeContainer = combine where
 
 instance Monoid ContainerDT where
     mempty = container []
-    ContainerDT n1 p1 `mappend` ContainerDT n2 p2 = ContainerDT (n1 + n2) (normalizeContainer (p1 ++ p2)) where
+    ContainerDT n1 p1 `mappend` ContainerDT n2 p2 = ContainerDT (n1 + n2) (normalizeContainer (p1 ++ p2))
 
 
 data Machine = Producer !Rate !Particle !MachineID

@@ -11,12 +11,17 @@ Random Code (or whatever you want to call this)
 ## Random things (Racket/)
 
 * interpolar.rkt - some fancy implementation of newton's divided differences, hacked it until I understood (somewhat) them
+* draw-exio4.rkt - just playing with racket's pict library, drawing my nick and name with it
 
 ## Random things (Haskell/)
 
 * play.repl.hs - small REPL interface for pico2wave
 * tags - naive good-enough (for not a lot of data) tag manager
 * lazy-machines - proof-of-concept algorithm of a partially lazy evaluated graph for a game
+* gen-map - png->minetest schematic converter (rough, it works and everything, but still not finished)
+* vfs - just a demo-ish vfs because I wanted to play with data families and things
+* markov - just playing around with a markov chains
+* daily/ solutions to random problems in /r/dailyprogrammer
 
 ## Advent of code (advent/)
 
