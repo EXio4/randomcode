@@ -8,6 +8,9 @@ Random Code (or whatever you want to call this)
 * thread/* idea came out of jthread, saw it could be nice when handling lots of threads (or somewhere, I guess), and well, I just implemented a very cheap version (there is probably a better library for this around
 * regex/*  based on the pcredemo example (a bit modified though, for using a nicer interface)
 
+## Random things (Cxx/)
+* avanzada.cxx - translation from uni spreadsheets from Pascal to C++
+
 ## Random things (Racket/)
 
 * interpolar.rkt - some fancy implementation of newton's divided differences, hacked it until I understood (somewhat) them
