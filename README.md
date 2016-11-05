@@ -3,10 +3,10 @@ Random Code (or whatever you want to call this)
 
 ## Random things (C/)
 
-* ltun/*   based on libdnet (dumbnet on debian) (for fixing a bug I had with IPoIRC)
-* base64/* code ("heavily") based on http://doctrina.org/Base64-With-OpenSSL-C-API.html
-* thread/* idea came out of jthread, saw it could be nice when handling lots of threads (or somewhere, I guess), and well, I just implemented a very cheap version (there is probably a better library for this around
-* regex/*  based on the pcredemo example (a bit modified though, for using a nicer interface)
+* ltun/*   - based on libdnet (dumbnet on debian) (for fixing a bug I had with IPoIRC)
+* base64/* - code ("heavily") based on http://doctrina.org/Base64-With-OpenSSL-C-API.html
+* thread/* - idea came out of jthread, saw it could be nice when handling lots of threads (or somewhere, I guess), and well, I just implemented a very cheap version (there is probably a better library for this around
+* regex/*  - based on the pcredemo example (a bit modified though, for using a nicer interface)
 
 ## Random things (Cxx/)
 * avanzada.cxx - translation from uni spreadsheets from Pascal to C++
@@ -15,6 +15,7 @@ Random Code (or whatever you want to call this)
 
 * interpolar.rkt - some fancy implementation of newton's divided differences, hacked it until I understood (somewhat) them
 * draw-exio4.rkt - just playing with racket's pict library, drawing my nick and name with it
+* fsm.rkt        - (deterministic) finite state machine implementation
 
 ## Random things (Haskell/)
 
