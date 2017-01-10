@@ -27,6 +27,9 @@ Random Code (or whatever you want to call this)
 * markov - just playing around with a markov chains
 * daily/ - solutions to random problems in /r/dailyprogrammer
 * useless_flatten.hs - flatten over.. arbitrarily nested data structures (using monad because I needed something polymorphic) 
+* dukto_hs/ - Haskell implementation of Dukto's protocol
+* process_silence.hs - split a file in places where there's silence, with some pseudosmart calculations aiming at reducing small files creating by silence which didn't really meant much
+
 
 ## Advent of code (advent/)
 
